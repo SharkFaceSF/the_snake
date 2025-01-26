@@ -127,7 +127,7 @@ class Snake(GameObject):
 
     def reset(self):
         """Сбрасывает состояние змейки до начального."""
-        self.positions = [SCREEN_CENTER]
+        self.positions = [self.position]
         self.direction = choice([UP, DOWN, LEFT, RIGHT])
         self.direction = self.direction
 
