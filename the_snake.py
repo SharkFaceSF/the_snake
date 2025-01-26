@@ -8,6 +8,7 @@ GRID_SIZE = 20
 GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
 SCREEN_CENTER = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+ROUNDING = GRID_SIZE // 5
 
 # Направления движения:
 UP = (0, -1)
@@ -35,9 +36,9 @@ clock = pg.time.Clock()
 class GameObject:
     """Родительский класс для всех объектов игры."""
 
-    def __init__(self, position=(320, 240), body_color=None):
-        self.position = SCREEN_CENTER
-        self.body_color = None
+    def __init__(self, position=SCREEN_CENTER, body_color=None):
+        self.position = position
+        self.body_color = body_color
 
     def draw(self):
         """Рисует объект на экране."""
@@ -47,42 +48,42 @@ class GameObject:
 class Apple(GameObject):
     """Класс для яблока."""
 
-    def __init__(self):
-        super().__init__(position=(320, 240), body_color=None)
-        self.body_color = APPLE_COLOR
-        self.randomize_position(default_positions=[])
+    def __init__(
+        self, position=SCREEN_CENTER,
+        body_color=APPLE_COLOR,
+        occupied_positions=[]
+    ):
+        super().__init__(position, body_color)
+        self.randomize_position(occupied_positions)
 
-    def randomize_position(self, default_positions):
+    def randomize_position(self, occupied_positions):
         """Задает случайное положение яблока, избегая занятых позиций."""
         while True:
-            new_position = (
+            self.position = (
                 randint(0, GRID_WIDTH - 1) * GRID_SIZE,
                 randint(0, GRID_HEIGHT - 1) * GRID_SIZE
             )
-            if new_position not in default_positions:
-                self.position = new_position
+            if self.position not in occupied_positions:
                 break
 
     def draw(self):
         """Рисует яблоко на экране."""
         rect = pg.Rect(self.position, (GRID_SIZE, GRID_SIZE))
         pg.draw.rect(
-            screen, self.body_color, rect, border_radius=GRID_SIZE // 5
+            screen, self.body_color, rect, border_radius=ROUNDING
         )
         pg.draw.rect(
-            screen, BORDER_COLOR, rect, 1, border_radius=GRID_SIZE // 5
+            screen, BORDER_COLOR, rect, 1, border_radius=ROUNDING
         )
 
 
 class Snake(GameObject):
     """Класс для змейки."""
 
-    def __init__(self):
-        super().__init__(position=(320, 240), body_color=None)
-        self.body_color = SNAKE_COLOR
-        self.positions = [SCREEN_CENTER]
+    def __init__(self, position=SCREEN_CENTER, body_color=SNAKE_COLOR):
+        super().__init__(position, body_color)
+        self.positions = [self.position]
         self.direction = RIGHT
-        self.next_direction = RIGHT
         self.last = None
 
     def get_head_position(self):
@@ -92,7 +93,7 @@ class Snake(GameObject):
     def move(self):
         """Перемещает змейку, обрабатывает появление с другой стороны."""
         head_x, head_y = self.get_head_position()
-        dir_x, dir_y = self.next_direction
+        dir_x, dir_y = self.direction
         new_head = (
             (head_x + dir_x * GRID_SIZE) % SCREEN_WIDTH,
             (head_y + dir_y * GRID_SIZE) % SCREEN_HEIGHT
@@ -116,24 +117,22 @@ class Snake(GameObject):
         for position in self.positions:
             rect = pg.Rect(position, (GRID_SIZE, GRID_SIZE))
             pg.draw.rect(
-                screen, self.body_color, rect, border_radius=GRID_SIZE // 5
+                screen, self.body_color, rect, border_radius=ROUNDING
             )
             pg.draw.rect(
-                screen, BORDER_COLOR, rect, 1, border_radius=GRID_SIZE // 5
+                screen, BORDER_COLOR, rect, 1, border_radius=ROUNDING
             )
 
-    def reset(self, apple):
+    def reset(self):
         """Сбрасывает состояние змейки до начального."""
         self.positions = [SCREEN_CENTER]
         self.direction = choice([UP, DOWN, LEFT, RIGHT])
-        self.next_direction = self.direction
-        apple.randomize_position(self.positions)
+        self.direction = self.direction
 
     def update_direction(self, new_direction):
         """Обновляет направление змейки"""
         if new_direction != (-self.direction[0], -self.direction[1]):
-            self.next_direction = new_direction
-        self.direction = self.next_direction
+            self.direction = new_direction
 
 
 def handle_keys(snake):
@@ -156,8 +155,8 @@ def handle_keys(snake):
 def main():
     """Основной игровой цикл."""
     pg.init()
-    apple = Apple()
     snake = Snake()
+    apple = Apple(occupied_positions=snake.positions)
 
     while True:
         clock.tick(SPEED)
@@ -171,7 +170,8 @@ def main():
 
         # Проверка столкновений
         if snake.check_collision():
-            snake.reset(apple)
+            snake.reset()
+            apple.randomize_position(snake.positions)
 
         # Проверка на съедание яблока
         elif snake.get_head_position() == apple.position:
